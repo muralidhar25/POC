@@ -6,9 +6,11 @@ using Google.Apis.Services;
 using Google.Apis.Util.Store;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -58,12 +60,18 @@ namespace ReadDriveFiles
             IList<Google.Apis.Drive.v3.Data.File> files = listRequest.Execute()
                 .Files;
             Console.WriteLine("Files:");
+
             if (files != null && files.Count > 0)
             {
+                DataSet ds = new DataSet();
+
                 foreach (var file in files)
                 {
                     // var absPath = AbsPath(file);
-                    DownloadFile(service, file.Id);
+                    string filepath=DownloadFile(service, file.Id);
+                    
+                    DataTable dt = ConvertCSVtoDataTable(filepath);
+                    ds.Tables.Add(dt);
                     Console.WriteLine("{0} ({1})", file.Name, file.Id);
                 }
             }
@@ -112,6 +120,27 @@ namespace ReadDriveFiles
             {
                 stream.WriteTo(file);
             }
+        }
+        private static DataTable ConvertCSVtoDataTable(string strFilePath)
+        {
+            StreamReader sr = new StreamReader(strFilePath);
+            string[] headers = sr.ReadLine().Split(',');
+            DataTable dt = new DataTable();
+            foreach (string header in headers)
+            {
+                dt.Columns.Add(header);
+            }
+            while (!sr.EndOfStream)
+            {
+                string[] rows = Regex.Split(sr.ReadLine(), ",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)");
+                DataRow dr = dt.NewRow();
+                for (int i = 0; i < headers.Length; i++)
+                {
+                    dr[i] = rows[i];
+                }
+                dt.Rows.Add(dr);
+            }
+            return dt;
         }
     }
 }
